@@ -1,0 +1,71 @@
+pipeline {
+    agent any
+    environment {
+        GIT_CREDENTIALS_ID = 'metaversegit'
+    }
+    stages {
+        stage('Checkout src') {
+            steps {
+                script {
+                    timeout(time: 30, unit: 'SECONDS') { // Increase timeout to 30 seconds
+                        git credentialsId: "${env.GIT_CREDENTIALS_ID}",
+                            url: 'git@github.com:metaverse-ventures/otc-backend.git',
+                            branch: 'main'
+                    }
+                }
+            }
+        }
+        
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    def dockerImageName = 'otcbackend'
+                    def dockerImageTag = "${env.BUILD_NUMBER}"
+                    
+                    def buildCommand = "docker build -t ${dockerImageName}:${dockerImageTag} ."
+                    echo "Executing command: ${buildCommand}"
+                    
+                    sh buildCommand
+                }
+            }
+        }
+        
+        stage('Tag the Image') {
+            steps {
+                script {
+                    withCredentials([string(credentialsId: 'registryuri', variable: 'DOCR_URI')]) {
+                        def dockerImageName = 'otcbackend'
+                        def dockerImageTag = "${env.BUILD_NUMBER}"
+                        sh "docker tag ${dockerImageName}:${dockerImageTag} ${DOCR_URI}/${dockerImageName}:${dockerImageTag}"
+                        sh "docker images"
+                    }
+                }
+            }
+        }
+        
+        stage('Docker Login') {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'dodocker', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                        sh '''
+                            echo "$DOCKER_PASS" | docker login registry.digitalocean.com --username "$DOCKER_USER" --password-stdin
+                        '''
+                    }    
+                }
+            }
+        }
+        
+        stage('Push Docker Image') {
+            steps {
+                script {
+                    withCredentials([string(credentialsId: 'registryuri', variable: 'DOCR_URI')]) {
+                        def dockerImageName = 'otcbackend'
+                        def dockerImageTag = "${env.BUILD_NUMBER}"
+                        sh "docker push ${DOCR_URI}/${dockerImageName}:${dockerImageTag}"
+                    }
+                }
+            }
+        }
+    }
+}
+

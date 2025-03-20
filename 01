@@ -1,0 +1,151 @@
+pipeline {
+    agent any
+    environment {
+        GIT_CREDENTIALS_ID = 'metaversegit'
+        DISCORD_URL_BASE = 'https://discord.com/oauth2/authorize'
+        DISCORD_CLIENT_ID = '1318448664980623411'
+        DISCORD_RESPONSE_TYPE = 'token'
+        DISCORD_REDIRECT_URI = 'https%3A%2F%2Fotclayer.com'
+        DISCORD_SCOPE = 'identify+guilds'
+    }
+    stages {
+        stage('Checkout src') {
+            steps {
+                script {
+                    timeout(time: 60, unit: 'SECONDS') { // Increase timeout to 30 seconds
+                        // Clone the repository
+                        git credentialsId: "${env.GIT_CREDENTIALS_ID}",
+                            url: 'git@github.com:metaverse-ventures/DataDao.git',
+                            branch: 'feat/testing'
+                    }
+                }
+            }
+        }
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    def dockerImageName = 'zlayer'
+                    def dockerImageTag = "${env.BUILD_NUMBER}"
+                    //def DISCORD_SECRET_URL = "https://discord.com/oauth2/authorize?client_id=1318448664980623411&response_type=token&redirect_uri=https%3A%2F%2Fotclayer.com&scope=identify+guilds"
+
+                    // Define build arguments with correct syntax
+                    def buildArgs = [
+                        NEXT_PUBLIC_DEV_URL: 'http://localhost:3000',
+                        NEXT_PUBLIC_BACKEND_URL: 'http://localhost:8000',
+                        NEXT_PUBLIC_PARTICLE_PROJECT_ID: 'e4ae13a3-4d98-4cb7-87ee-ff5a3b8c1c8f',
+                        NEXT_PUBLIC_PARTICLE_CLIENT_ID: 'cwOgIMWXtSVKE580iQ3H7eqIc794okX4j0cXzXdY',
+                        NEXT_PUBLIC_PARTICLE_SECRET_KEY: 'sM01j453jkIaHeQVkEFLT99oSyyv6056cZgjcQOI',
+                        NEXT_PUBLIC_WALLET_CONNECT_ID: '63e244644dfed88197be3e258b3ae7bf',
+                        NEXT_PUBLIC_APP_ID: '13c1b6d5-c39a-4bc4-8885-35672ef00304',
+                        RECLAIM_APP_AMAZON_SECRET: '0xed1c6209a0bacc2f862aeb4ac541d0a66b3195dfa88b4674fe5f2f47df4e49c4',
+                        RECLAIM_APP_AMAZON_APP_ID: '0x79E9B35ee6DF9142e9E3f97aBa45b9eAea4296B1',
+                        RECLAIM_APP_AMAZON_PRIME_VIDEO_USER_DATA_PROVIDER_ID: 'bce64fa2-f793-4698-8bd9-c6e7ebcc874b',
+                        RECLAIM_APP_NETFLIX_SECRET: '0x8c120f4c5707f8c1f23ffb85e16eb3cb777232aea03e92783a0abed2b8b3dcc1',
+                        RECLAIM_APP_NETFLIX_APP_ID: '0x7032654fAa76551FBecFF63363167f8d75d9DB9c',
+                        RECLAIM_APP_NETFLIX_FAVORITE_PROVIDER_ID: 'c4def272-62ea-4ec4-b920-88af249b8436',
+                        RECLAIM_APP_SPOTIFY_SECRET: '0xaf9418e751c25de415d47bce448eab3f2829fc9ee72d945a60a8c4ff61cadab4',
+                        RECLAIM_APP_SPOTIFY_APP_ID: '0x066EbBc90719b177623721C4f8A7D084786B90b4',
+                        RECLAIM_APP_SPOTIFY_PROVIDER_ID: 'b1c31134-f63b-4df5-a06d-cfbd2e5e3ff7',
+                        RECLAIM_APP_TWITTER_SECRET: '0x3c0025651b336a4432655740dce1640baa643c9801b762c3328d66a3089375ff',
+                        RECLAIM_APP_TWITTER_APP_ID: '0xE6ed0804DDf86Db76f9948e949763B4880A77B2d',
+                        RECLAIM_APP_TWITTER_PROVIDER_ID: '32d606ab-af47-4733-9cc1-e04b565ad045',
+                        RECLAIM_APP_LINKEDIN_SECRET: '0x7397990113ed9c10c67f60f7a76b1f6e74b4b42e160472c94382a141b4a4077f',
+                        RECLAIM_APP_LINKEDIN_APP_ID: '0xBf47B2280014CF27Cbf698499eFf31d2Ed92702e',
+                        RECLAIM_APP_LINKEDIN_USER_CONNECTION_PROVIDER_ID: 'e3b24f7a-92d1-4b9c-bf4d-7a6f21c3d918',
+                        RECLAIM_APP_ZOMATO_APP_ID: '0xca752E273Bb099100BC038CC2C9DC36Af191aC2F',
+                        RECLAIM_APP_ZOMATO_SECRET: '0x90936a45fd3ba77d61f3c58716ec12734907536bdeec28eb5fc7770334c8394a',
+                        RECLAIM_APP_ZOMATO_ORDER_HISTORY_PROVIDER_ID: '61fea293-73bc-495c-9354-c2f61294fc30',
+                        RECLAIM_APP_TWITCH_APP_ID: '0x17B143020Ea0bA9e24Be711870877a3b4648b675',
+                        RECLAIM_APP_TWITCH_SECRET: '0x6e267d21295a9224063491fced665e1e7f55fe770da490d8aa6c142edbaa58f6',
+                        RECLAIM_APP_TWITCH_USER_DATA_PROVIDER_ID: '6eefbc3f-9dd9-4466-a18f-ab9eea03d884',
+                        RECLAIM_APP_UBER_APP_ID: '0xbDc0DaD64423B8472641E52ce595F3ccA879aC29',
+                        RECLAIM_APP_UBER_SECRET: '0x457e329e300e7a165bfc18817d28dedf631cefff633e4ade1af1c2b1c4aaf156',
+                        RECLAIM_APP_UBER_USER_DATA_PROVIDER_ID: '3ec71eb9-fd68-48b1-8e1e-c0ff54acbb9d',
+                        RECLAIM_APP_STEAM_APP_ID: '0xC346395A3CD0205D48822d38CC05eFFc51b31E99',
+                        RECLAIM_APP_STEAM_SECRET: '0x64b734b068821ae7dcd823e1eb7f6bb8ebbc43e0be9df5b3d134f9dfbda1dd36',
+                        RECLAIM_APP_STEAM_DATA_PROVIDER_ID: '21931363-c429-465d-82b8-28001a7acf8e',
+                        RECLAIM_APP_REDDIT_APP_ID: '0x07fF5ae5D453761f2fdA42e721074e659aBA5916',
+                        RECLAIM_APP_REDDIT_SECRET: '0x2ae5e81d458814ba695986dc63dd98807d046c6d5162462fb492cbfb829a0a7f',
+                        RECLAIM_APP_REDDIT_PROVIDER_ID: '4c47c05f-ece9-4fe0-b8bf-12f6acbfd61a',
+                        DATABASE_URL: 'postgresql://postgres.hcusfsbobqulqtofhlch:5fi7lR4do6dxZABi@aws-0-ap-south-1.pooler.supabase.com:6543/postgres?pgbouncer=true',
+                        DIRECT_URL: 'postgresql://postgres.hcusfsbobqulqtofhlch:5fi7lR4do6dxZABi@aws-0-ap-south-1.pooler.supabase.com:5432/postgres',
+                        SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhjdXNmc2JvYnF1bHF0b2ZobGNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzU3OTYyNDQsImV4cCI6MjA1MTM3MjI0NH0.3gzOJVpAkuoqa2xVADMqg_xFsnzHvRdPNo_aIcPCmcU',
+                        SUPABASE_SECRET_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhjdXNmc2JvYnF1bHF0b2ZobGNoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczNTc5NjI0NCwiZXhwIjoyMDUxMzcyMjQ0fQ.M9H00pdaOAfh36EK0Ga73PvZyziZq1yOY-ftGHryLjA',
+                        SUPABASE_URL: 'https://hcusfsbobqulqtofhlch.supabase.co',
+                        BUCKET_NAME: 'DATADAO',
+                        SUPABASE_FILE_URL: 'https://hcusfsbobqulqtofhlch.supabase.co/storage/v1/object/public/DATADAO/',
+                        NEXT_PUBLIC_VANA_MAINNET_CHAINID: '1480',
+                        NEXT_PUBLIC_MOKSHA_TESTNET_CHAINID: '14800',
+                        NEXT_PUBLIC_DATADAO_SMART_CONTRACT_ADDRESS_DATA_REGISTRY: '0x8C8788f98385F6ba1adD4234e551ABba0f82Cb7C',
+                        NEXT_PUBLIC_DATADAO_SMART_CONTRACT_ADDRESS_TEE_POOL: '0x3c92fD91639b41f13338CE62f19131e7d19eaa0D',
+                        NEXT_PUBLIC_DATADAO_MOKSHA_SMART_CONTRACT_ADDRESS_DLP: '0x289a608FfBC4cdFbF9f25385AaFfCb03ED45638c',
+                        NEXT_PUBLIC_DATADAO_VANA_SMART_CONTRACT_ADDRESS_DLP: '0x289a608FfBC4cdFbF9f25385AaFfCb03ED45638c',
+                        DATADAO_POC_GITHUB: 'https://github.com/metaverse-ventures/datadao-proof-of-contribution/releases/download/v69/my-proof-69.tar.gz',
+                        BASE_URL: 'https://zlayerprotocol.vercel.app',
+                        DISCORD_USER_URL: 'https://discord.com/api/v10/oauth2/@me',
+                        DISCORD_GUILD_URL: 'https://discord.com/api/v10/users/@me/guilds',
+                        TELEGRAM_BOT_TOKEN: '7613373832:AAE5zoNZJIYbm1kiQdRzCbha9ZIMCJyVQrc',
+                        NEXT_PUBLIC_DISCORD_SECRET_URL: 'https://discord.com/oauth2/authorize?client_id=1331246462633251036&response_type=token&redirect_uri=http%3A%2F%2Flocalhost%3A3000&scope=identify+guilds',
+                        SECRET_TOKEN: '2e40f5fc77b21394016330f8fab95360e9f81d723102793ec0be04a609b8ed02132ce1c62bd6cf9578111d156582fd37274c7d88cd61e940d4694a35baadfd03cf701cf3964123a88f6e18a146489b90ba8031eb9a3cd5f4fc15da238e404b63d2abfb8ba10d16d256bbdc19d7ac65886285128e619fc9071d0c9d8488d0f08d',
+                        ENCRYPTED_SECRET_TOKEN: '792e42d54298fb7de212ca047e837d25dccdd71a25e29822e4d6b2c0d0e9b52f3b39abc51232f0b37da0b1c53c761322478e0fbac6561acc826f263af35534c1d020b588508a08343a648aaa3b6c2ece006140ba3767ebead561d27b2a8c6e103d8bdee20b5eb152a3dc905ba5fe1120c8283ef40e688b6d0e002272540b08f54a9f12ec96fe96ddf4c1491c0b5a90b6148b4bb754b8d90400114581bdeae36d12d18d43315d68828d87e4d6c28af407ef40e3815581d8d5ac008fc0abb96a448533c590278ee3ce24730ec9685a6fe710eb8d9996ef3b96a7cb893ede29ed6b92c6f4698fc37fcd881191fbace6014cd9d3e2509a43ef33af7ca9038916b9b9ab8eb2f5b28e47ada081a6cdd0fbc154b3f90207fc1001c0804cc342a776ef63074379fc33c56918999f66a58a7ac91f6c5a6e3589a0a79f20245f03f1d064ea0fa02417c366d87112d2f1ac8a65081411a25058c16e59036ffc549ae097341273cb0a544e592f55a2f879e8ac8aa33d3f250569dea9401981462d54b05240fa',
+                        SYNDICATE_PROJECT_ID: '7adc54bb-5cd7-4f08-b05a-4686cce50416',
+                        QUEST_REWARD_CONTRACT_ADDRESS: '0x30fF1cf5ee1F1ca03e85422850B102b8A8d12aCD',
+                        QUEST_REWARD_CHAIN_ID: '97',
+                        SYNDICATE_API_KEY: 'ZjMhTz02C8oCGDrMw3Ld',
+                        REDIS_PWD: 'af531e66b8f7d4fef9398e7b749889c33e26af0d364696c5534ae9a507a3eedbcc87c7934e65d26565b6252ca7c9d5a6ba490b10131500cd4cf8328a97244ea16e8e6406414e01d36ff879b9e4b5d8c733b5c0fe85684f16545bccd3478e1624014c94ffbdc9c6c4109a1fae05111008e32ab93408a2986c411720e2a094f756029105fa138087fff3169e62e4351df9eef54a7ff651c9e747fa7e6cc40dc8a3708879810d104e945d67ca040944c45e0d812e23077a19036a20f6d99be63296f87713ceb79b78956dbd71aef6be9536c3dcd9060e16340b80177c4351e3345056a19ea75c820a5f4cd90c6c1fb304ad46dd8faba323b567192d0b78e21ce7bc77468f5c55bd4e6ef330119dbb5a054fabf0721eb957c5b5784b04cc7bb0fdcb03a57c55783d97878b64f5afa0cc604330296dc72b9690f8526250f680beaaecb65a44300e7d276511c8f17a9a7ed4833fb6a2e5f08268625af45db6f775e3f6339b5f02e0975494a9bdbbb4b1e1f5a4cb76043651595d96021b70cdbd208b15',
+                        REDIS_HOST: 'roundhouse.proxy.rlwy.net',
+                        REDIS_PORT: '28665',
+                        SPONSER_GELATO_API_URL: 'https://api.gelato.digital',
+                        SPONSER_GELATO_API_KEY: 'rLxAEh__wLxWlyU0Pwf4Fe6avvYCTYd2p6mJUSFTwsI_',
+                        JWT_SECRET: '10fb094ced87a9def33e3dec5fe26cbc9847046d405376dca64a9f371d738cfd'
+                    ]
+
+                    // Build the Docker command
+                    def buildCommand = "docker build -t ${dockerImageName}:${dockerImageTag} ."
+                    buildArgs.each { key, value ->
+                        buildCommand += " --build-arg ${key}=${value}"
+                    }
+                    echo "Executing command: ${buildCommand}"
+
+                    // Execute the build command
+                    sh(buildCommand)
+                }
+            }
+        }
+        stage('Tag the Image') {
+            steps {
+                script {
+                    withCredentials([string(credentialsId: 'registryuri', variable: 'DOCR_URI')]) {
+                        def dockerImageName = 'zlayer'
+                        def dockerImageTag = "${env.BUILD_NUMBER}"
+                        sh "docker tag ${dockerImageName}:${dockerImageTag} ${DOCR_URI}/${dockerImageName}:${dockerImageTag}"
+                        sh "docker images"
+                    }
+                }
+            }
+        }
+        stage('Docker Login') {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'dodocker', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                        sh '''
+                            echo "$DOCKER_PASS" | docker login registry.digitalocean.com --username "$DOCKER_USER" --password-stdin
+                        '''
+                    }    
+                }
+            }
+        }
+        
+        stage('Push Docker Image') {
+            steps {
+                script {
+                    withCredentials([string(credentialsId: 'registryuri', variable: 'DOCR_URI')]) {
+                        def dockerImageName = 'zlayer'
+                        def dockerImageTag = "${env.BUILD_NUMBER}"
+                        sh "docker push ${DOCR_URI}/${dockerImageName}:${dockerImageTag}"
+                    }
+                }
+            }
+        }
+    }
+}

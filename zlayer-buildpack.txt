@@ -1,0 +1,65 @@
+pipeline {
+    agent any
+    environment {
+        GIT_CREDENTIALS_ID = 'metaversegit'
+        DISCORD_URL_BASE = 'https://discord.com/oauth2/authorize'
+        DISCORD_CLIENT_ID = '1318448664980623411'
+        DISCORD_RESPONSE_TYPE = 'token'
+        DISCORD_REDIRECT_URI = 'https%3A%2F%2Fotclayer.com'
+        DISCORD_SCOPE = 'identify+guilds'
+    }
+    stages {
+        stage('Checkout src') {
+            steps {
+                script {
+                    timeout(time: 60, unit: 'SECONDS') { // Increase timeout to 30 seconds
+                        // Clone the repository
+                        git credentialsId: "${env.GIT_CREDENTIALS_ID}",
+                            url: 'git@github.com:metaverse-ventures/DataDao.git',
+                            branch: 'feat/testing'
+                    }
+                }
+            }
+        }
+        stage('Build Docker Image') {
+            steps {
+                sh 'bash -c "pack build zlayer:${env.BUILD_NUMBER} --path . --builder gcr.io/buildpacks/builder:v1"'
+            }
+        }
+        stage('Tag the Image') {
+            steps {
+                script {
+                    withCredentials([string(credentialsId: 'registryuri', variable: 'DOCR_URI')]) {
+                        def dockerImageName = 'zlayer'
+                        def dockerImageTag = "${env.BUILD_NUMBER}"
+                        sh "docker tag ${dockerImageName}:${dockerImageTag} ${DOCR_URI}/${dockerImageName}:${dockerImageTag}"
+                        sh "docker images"
+                    }
+                }
+            }
+        }
+        stage('Docker Login') {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'dodocker', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                        sh '''
+                            echo "$DOCKER_PASS" | docker login registry.digitalocean.com --username "$DOCKER_USER" --password-stdin
+                        '''
+                    }    
+                }
+            }
+        }
+        
+        stage('Push Docker Image') {
+            steps {
+                script {
+                    withCredentials([string(credentialsId: 'registryuri', variable: 'DOCR_URI')]) {
+                        def dockerImageName = 'zlayer'
+                        def dockerImageTag = "${env.BUILD_NUMBER}"
+                        sh "docker push ${DOCR_URI}/${dockerImageName}:${dockerImageTag}"
+                    }
+                }
+            }
+        }
+    }
+}

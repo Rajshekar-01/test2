@@ -1,0 +1,112 @@
+pipeline {
+    agent any
+    environment {
+        GIT_CREDENTIALS_ID = 'metaversegit'
+    }
+    stages {
+        stage('Checkout src') {
+            steps {
+                script {
+                    timeout(time: 30, unit: 'SECONDS') { // Increase timeout to 30 seconds
+                        // Clone the repository
+                        git credentialsId: "${env.GIT_CREDENTIALS_ID}",
+                            url: 'git@github.com:metaverse-ventures/otc-admin-dashboard.git',
+                            branch: 'main'
+                    }        
+                }        
+            }
+        }
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    def dockerImageName = 'otc-admin-dashboard'
+                    def dockerImageTag = "${env.BUILD_NUMBER}"
+                    
+                    // Define build arguments with correct syntax
+                    def buildArgs = [
+                        NEXT_PUBLIC_PROJECT_ID: '63e244644dfed88197be3e258b3ae7bf',
+                        NEXT_PUBLIC_BSC_TESTNET_PREPOINT_SWAP_CONTRACT: '0xab37c596CF453E040e44976451c732Bb7e913074',
+                        NEXT_PUBLIC_SEPOLIA_PREPOINT_SWAP_CONTRACT: '0xab37c596CF453E040e44976451c732Bb7e913074',
+                        NEXT_PUBLIC_AMOY_PREPOINT_SWAP_CONTRACT: '0xab37c596CF453E040e44976451c732Bb7e913074',
+                        NEXT_PUBLIC_BASE_SEPOLIA_PREPOINT_SWAP_CONTRACT: '0xab37c596CF453E040e44976451c732Bb7e913074',
+                        NEXT_PUBLIC_ARBITRUM_SEPOLIA_PREPOINT_SWAP_CONTRACT: '0xab37c596CF453E040e44976451c732Bb7e913074',
+                        NEXT_PUBLIC_OPTIMISM_SEPOLIA_PREPOINT_SWAP_CONTRACT: '0xab37c596CF453E040e44976451c732Bb7e913074',
+                        NEXT_PUBLIC_PREPOINT_ADMIN_ADDRESS: '0x95B03146FF26336bc34ED383d263499417dc77BD',
+                        NEXT_PUBLIC_DEV_URL: 'https://otclayer.com',
+                        NEXT_PUBLIC_BACKEND_BASE_URL: 'https://backend.otclayer.com',
+                        NEXT_PUBLIC_AWS_URL: 'https://otc-buck.s3.ap-south-1.amazonaws.com',
+                        NEXT_PUBLIC_SPEC_FOLDER_NAME: '/s3Token-Image-Folder/',
+                        NEXT_PUBLIC_ZETA_CHAIN_ID: '7001',
+                        NEXT_PUBLIC_ZETA_MAINNET_CHAIN_ID: '7000',
+                        NEXT_PUBLIC_AMOY_CHAIN_ID: '80002',
+                        NEXT_PUBLIC_SEPOLIA_CHAIN_ID: '11155111',
+                        NEXT_PUBLIC_ETHEREUM_CHAIN_ID: '1',
+                        NEXT_PUBLIC_BSC_TESTNET_CHAIN_ID: '97',
+                        NEXT_PUBLIC_BSC_MAINNET_CHAIN_ID: '56',
+                        NEXT_PUBLIC_BITCOIN_CHAIN_ID: '18332',
+                        NEXT_PUBLIC_ARBITRUM_CHAIN_ID: '42161',
+                        NEXT_PUBLIC_ARBITRUM_SEPOLIA_CHAIN_ID: '421614',
+                        NEXT_PUBLIC_AVALANCHE_CHAIN_ID: '43114',
+                        NEXT_PUBLIC_AVALANCHE_FUJI_CHAIN_ID: '43113',
+                        NEXT_PUBLIC_BASE_CHAIN_ID: '8453',
+                        NEXT_PUBLIC_BASE_SEPOLIA_CHAIN_ID: '84532',
+                        NEXT_PUBLIC_LINEA_CHAIN_ID: '59144',
+                        NEXT_PUBLIC_LINEA_SEPOLIA_CHAIN_ID: '59141',
+                        NEXT_PUBLIC_ETHEREUM_MAINNET_CHAIN_ID: '1',
+                        NEXT_PUBLIC_OPTIMISM_CHAIN_ID: '10',
+                        NEXT_PUBLIC_OPTIMISM_SEPOLIA_CHAIN_ID: '11155420',
+                        NEXT_PUBLIC_SCROLL_CHAIN_ID: '534352',
+                        NEXT_PUBLIC_SCROLL_SEPOLIA_CHAIN_ID: '534351',
+                        NEXT_PUBLIC_POLYGONZKEVM_CHAIN_ID: '1101',
+                        NEXT_PUBLIC_POLYGONZKEVM_TESTNET_CHAIN_ID: '1442'                        
+                    ]
+
+                    // Build the Docker command
+                    def buildCommand = "docker build -t ${dockerImageName}:${dockerImageTag} ."
+                    buildArgs.each { key, value ->
+                        buildCommand += " --build-arg ${key}=${value}"
+                    }
+                    echo "Executing command: ${buildCommand}"
+
+                    // Execute the build command
+                    sh buildCommand
+                }
+            }
+        }
+        stage('Tag the Image') {
+            steps {
+                script {
+                    withCredentials([string(credentialsId: 'registryuri', variable: 'DOCR_URI')]) {
+                        def dockerImageName = 'otc-admin-dashboard'
+                        def dockerImageTag = "${env.BUILD_NUMBER}"
+                        sh "docker tag ${dockerImageName}:${dockerImageTag} ${DOCR_URI}/${dockerImageName}:${dockerImageTag}"
+                        sh "docker images"
+                    }
+                }
+            }
+        }
+        
+        stage('Docker Login') {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'dodocker', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                        sh '''
+                            echo "$DOCKER_PASS" | docker login registry.digitalocean.com --username "$DOCKER_USER" --password-stdin
+                        '''
+                    }    
+                }
+            }
+        }
+        stage('Push Docker Image') {
+            steps {
+                script {
+                    withCredentials([string(credentialsId: 'registryuri', variable: 'DOCR_URI')]) {
+                        def dockerImageName = 'otc-admin-dashboard'
+                        def dockerImageTag = "${env.BUILD_NUMBER}"
+                        sh "docker push ${DOCR_URI}/${dockerImageName}:${dockerImageTag}"
+                    }
+                }
+            }
+        }
+    }    
+}

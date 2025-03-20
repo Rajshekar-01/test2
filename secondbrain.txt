@@ -1,0 +1,20 @@
+pipeline {
+    agent any
+    environment {
+        GIT_CREDENTIALS_ID = 'metaversegit'
+    }
+    stages {
+        stage('Checkout src') {
+            steps {
+                script {
+                    timeout(time: 60, unit: 'SECONDS') { // Increase timeout to 30 seconds
+                        // Clone the repository
+                        git credentialsId: "${env.GIT_CREDENTIALS_ID}",
+                            url: 'git@github.com:metaverse-ventures/SecondBrain.git',
+                            branch: 'mainnet'
+                    }
+                }
+            }
+        }
+    }
+}
